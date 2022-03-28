@@ -4,9 +4,19 @@ import copy from "rollup-plugin-copy";
 import livereload from 'rollup-plugin-livereload';
 import resolve from "rollup-plugin-node-resolve";
 import svelte from "rollup-plugin-svelte";
+import postcss from "rollup-plugin-postcss";
+import preprocess from "svelte-preprocess";
+
+const postcss_config = require("./postcss.config.cjs");
 
 // const production = !process.env.NODE_ENV && !process.env.ROLLUP_WATCH;
-const production = !(process.argv.filter(arg => arg.match(/-w/) !== null).length > 0);
+const production = !(
+    process.env.NODE_ENV === "dev" ||
+    process.env.NODE_ENV === "development" ||
+    process.env.NODE_ENV === "test" ||
+    process.env.ROLLUP_WATCH ||
+    process.argv.filter(arg => arg.match(/\s-w/) !== null).length > 0
+);
 
 (function (prod_value) {
     console.log("PRODUCTION: ", prod_value);
@@ -27,19 +37,7 @@ export default [
         },
         plugins: [
             babel({
-                "runtimeHelpers": true,
-                "plugins": [
-                    "@babel/plugin-transform-async-to-generator",
-                    "@babel/plugin-transform-regenerator",
-                    ["@babel/plugin-transform-runtime", {
-                        "helpers": true,
-                        "regenerator": true
-                    }]
-                ],
-                "presets": [
-                    "@babel/preset-env"
-                ],
-                "exclude": "node_modules/**"
+                "runtimeHelpers": true
             }),
 
             commonjs({ sourceMap: false }),
@@ -50,6 +48,19 @@ export default [
                 ]
             }),
 
+            postcss({
+                extensions: ['.css'],
+                extract: true,
+                minimize: !!production,
+                sourceMap: !production,
+                use: [['sass', {
+                    includePaths: [
+                        './src/app.css',
+                        './node_modules'
+                    ]
+                }]]
+            }),
+
             resolve({
                 browser: true,
                 dedupe: importee =>
@@ -58,7 +69,10 @@ export default [
 
             svelte({
                 dev: !production,
-                hydratable: true
+                hydratable: true,
+                preprocess: preprocess({
+                    postcss: postcss_config
+                })
             }),
 
             // In dev mode, watch the `public` directory
